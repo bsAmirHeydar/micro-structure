@@ -6,7 +6,7 @@
 #property copyright "Copyright 2025, MetaQuotes Ltd."
 #property link      "https://www.mql5.com"
 bool is1 = true;
-int aHour1 = 0;
+int aHour1 = 3;
 int aMinute1 = 30;
 int bHour1 = 21;
 int bMinute1 = 0;

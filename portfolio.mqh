@@ -53,7 +53,7 @@ void addSymbol(string _name, int _point_scale, string _group, double _vol_factor
 void initialSymbol()
   {
  //  addSymbol("#US30", 1, "Indices-Amarica", 1, 0);
-  // addSymbol("#USNDAQ100", 1, "Indices-Amarica", 1, 0);
+   addSymbol("#USNDAQ100", 1, "Indices-Amarica", 1, 0);
  //  addSymbol("#USSPX500", 100, "Indices-Amarica", 1, 0);
 //  addSymbol("#US2000", 100, "Indices-Amarica", 0.25);
  //  addSymbol("#UK100", 100, "Indices-Europe", 0.25, 0);
@@ -65,7 +65,7 @@ void initialSymbol()
  //  addSymbol("BRENT", 1, "Energy", 0.5,7);
    //addSymbol("WTI", 1, "Energy", 1, 7);
 // addSymbol("NAT.GAS", 1, "Energy", 0.5);
-   addSymbol("GOLD", 1, "Metals", 1, 7);
+  // addSymbol("GOLD", 1, "Metals", 1, 7);
   // addSymbol("SILVER", 1, "Metals", 0.5,7);
 //addSymbol("PALLADIUM", 1, "Metals", 0.5);
 // addSymbol("PLATINUM", 1, "Metals", 0.5);

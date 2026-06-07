@@ -10,7 +10,7 @@
 input double risk = 0.01; //Risk per order
 int MagicNumber = 0; //Magic number
 //input double commissionPerLot = 3.0; //Commission per lot
-int maxOrder = 10; //Max order
+int maxOrder = 1; //Max order
 bool isTrail = false; //Trail?
 int slippage = 2; //Slippage
 
@@ -352,3 +352,26 @@ string tradeComment(string sym, ENUM_TIMEFRAMES tf)
    return sym + "_" + TfToString(tf);
   }
 //+------------------------------------------------------------------+
+void deleteAll(string sym, int _type)
+  {
+   MqlTradeRequest r;
+   MqlTradeResult s;
+   for(int j = OrdersTotal() - 1;j >= 0;j--)
+     {
+      ulong ot = OrderGetTicket(j);
+      if(!OrderSelect(ot))
+         continue;
+      if(OrderGetString(ORDER_SYMBOL) != sym)
+         continue;
+      int t = (int)OrderGetInteger(ORDER_TYPE);
+      if(_type == 1  && t != ORDER_TYPE_BUY_LIMIT)
+         continue;
+      if(_type == -1 && t != ORDER_TYPE_SELL_LIMIT)
+         continue;
+      ZeroMemory(r);
+      ZeroMemory(s);
+      r.action = TRADE_ACTION_REMOVE;
+      r.order  = ot;
+      bool result = OrderSend(r,s);
+     }
+  }

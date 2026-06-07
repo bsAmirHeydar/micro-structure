@@ -28,18 +28,14 @@
 
 #include "draw.mqh"
 #include "order.mqh"
-#include "micro filter.mqh"
-#include "volatility.mqh"
-
-
-double minATRFactor =0; //Minimum ATR Factor
-double defaultSLATRFactor = 2; //Default SL ATR Factor
-double maxATRFactor = 20000; //Max ATR Factor
-bool tradeCondition = false;
-bool closeCondition = false;
-bool regimCondition = false;
-bool resetCondition = false;
+#include "Node.mqh"
+#include "imbalance.mqh"
 int riskCount = 0;
+
+input ENUM_TIMEFRAMES entryTF = PERIOD_M1;
+input ENUM_TIMEFRAMES midTF = PERIOD_M5;
+input ENUM_TIMEFRAMES dirTF = PERIOD_M15;
+datetime lastTimeContext = 0;
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
@@ -67,70 +63,50 @@ public:
    void              run(bool _justTrail = false)
      {
       string sym = universe[symID].name;
-      ENUM_TIMEFRAMES entryTF = PERIOD_CURRENT;
-      universe[symID].tf = entryTF;
-      if(entryTF == TF_INVALID)
-         return;
+      universe[symID].tf = midTF;
       double spread = SymbolInfoDouble(sym, SYMBOL_ASK) - SymbolInfoDouble(sym, SYMBOL_BID);
-      double highest = iHigh(sym, entryTF, iHighest(sym, entryTF, MODE_HIGH, 20, 2));
-      double lowest = iLow(sym, entryTF, iLowest(sym, entryTF, MODE_LOW, 20, 2));
-      double price = iClose(sym, entryTF, 1);
-      static datetime lastBarTime = 0;
-      datetime curBarTime = iTime(sym, entryTF, 0);
-      if(!(curBarTime == lastBarTime))
+      context cnx();
+      cnx.scan(sym, dirTF);
+      context cEntry();
+      cEntry.scan(sym, midTF);
+      if(lastTimeContext != cnx.time)
         {
-         lastBarTime = curBarTime;
-         // run every candle
-         regimCondition = volState(sym, PERIOD_H1, 1,5,20,1.0,VOL_RATIO_ABOVE, AGG_RMS, SRC_CC, 0);
-         tradeCondition = volState(sym, entryTF, 5, 10, 100, 1.0, VOL_RATIO_ABOVE, AGG_MED, SRC_CC);
-         closeCondition = volState(sym, entryTF, 5, 10, 100, 0.85, VOL_RATIO_BELOW, AGG_MED, SRC_CC);
-         resetCondition = volState(sym, entryTF, 5, 10, 100, 0.85, VOL_RATIO_BELOW, AGG_MED, SRC_CC);
+         riskCount = 0;
+         lastTimeContext = cnx.time;
         }
-      if(resetCondition)
-         riskCount = 0;
-      if(closeCondition)
+      if(riskCount >= 1)
+         return;
+      int direction = cnx.direction(CONTEXT_HOLD);
+      int entDir = cEntry.direction(CONTEXT_REJECT);
+      imbalance imb();
+      imb.scan(sym, entryTF, entDir, cEntry.candleTouchIndex);
+      if(direction == 1 && entDir)
         {
-         riskCount = 0;
-         closeAll(sym, 1);
+         node nd();
+         orderType = "limit";
+         entry = imb.startPrice;
+         // nd.scan(sym, 1,dirTF, 1, 2);
+         sl =imb.endPrice;
+         tp = entry + (entry - sl) * 4;
          closeAll(sym, -1);
+         deleteAll(sym, 1);
+         deleteAll(sym, -1);
+         buy(symID, orderType, entry, sl, tp, 1,entryTF);
         }
-      if(!closeCondition && (regimCondition && tradeCondition) && riskCount < 1)
-        {
-         double atrArray[];
-         int atrIndex = iATR(sym, entryTF, 14);
-         CopyBuffer(atrIndex,0,0,1,atrArray);
-         double atr = atrArray[0];
-         double maxATR = maxATRFactor * atr;
-         double minATR = minATRFactor * atr;
-         double higherHighSL = price + maxATR;
-         double lowerHighSL = price + minATR;
-         double lowerLowSL = price - maxATR;
-         double higherLowSL = price - minATR;
-         WeakRangeResult wr =  FindWeakRange(sym, entryTF, 5, 5, 10, 100, 1, AGG_MED, SRC_CC, 1, 500);
-         if(price > wr.highestHigh)
+      else
+         if(direction == -1 && entDir)
            {
-            entry = SymbolInfoDouble(sym, SYMBOL_ASK);
-            //   if(lowest > lowerLowSL && lowest < higherLowSL)
-            //    sl = lowest;
-            //  else
-            //    sl = price - (defaultSLATRFactor * atr);
-            sl = wr.lowestLow;
-            riskCount ++;
-            buy(symID, orderType, entry, sl, 0, 1, entryTF);
+            node nd();
+            orderType = "limit";
+            entry = imb.startPrice;
+            // nd.scan(sym, -1,dirTF, 1, 2);
+            sl = imb.endPrice + spread;
+            tp = entry - (sl - entry) * 4;
+            closeAll(sym, 1);
+            deleteAll(sym, 1);
+            deleteAll(sym, -1);
+            sell(symID, orderType, entry, sl, tp, 1, entryTF);
            }
-         else
-            if(price < wr.lowestLow)
-              {
-               entry = SymbolInfoDouble(sym, SYMBOL_BID);
-              // if(highest < higherHighSL && highest > lowerHighSL)
-               //   sl = highest + spread;
-             //  else
-              //    sl = price + (defaultSLATRFactor * atr) + spread;
-              sl = wr.highestHigh;
-               riskCount++;
-               sell(symID, orderType, entry, sl, 0, 1, entryTF);
-              }
-        }
      }
    void              reset(int _type)
      {
